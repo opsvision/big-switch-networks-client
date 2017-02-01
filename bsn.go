@@ -22,8 +22,10 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	//"io"
 	"net"
 	"net/http"
+	//"os"
 	"time"
 )
 
@@ -39,14 +41,36 @@ func New(controller string, port string) *Client {
 	return client
 }
 
+// GetSwitches retrieves a list of switches from the BSN controller
+func (c *Client) GetSwitches() Switches {
+	var endpoint = fmt.Sprintf("%s/api/v1/data/controller/applications/bcf/info/fabric/switch", c.Controller)
+	var switches Switches
+
+	// Create the request
+	req, err := http.NewRequest("GET", endpoint, nil)
+
+	// Set headers
+	req.Header.Set("content-type", "application/json")
+	req.Header.Set("Cookie", c.SessionCookie)
+
+	// Send the payload
+	resp, err := c.getClient().Do(req)
+	if err != nil {
+		fmt.Printf("Error: %s\n" + err.Error())
+	}
+	defer resp.Body.Close()
+
+	// Decode the response
+	json.NewDecoder(resp.Body).Decode(&switches)
+	//io.Copy(os.Stdout, resp.Body)
+	return switches
+}
+
 // Authenticate with the BSN controller
 func (c *Client) Authenticate(creds *Credentials) {
 	var endpoint = fmt.Sprintf("%s/api/v1/auth/login", c.Controller)
 	var payload bytes.Buffer
 	var authresp AuthResponse
-
-	// debugging
-	//fmt.Println(endpoint)
 
 	// Encode the payload; username and password
 	json.NewEncoder(&payload).Encode(creds)
@@ -68,7 +92,7 @@ func (c *Client) Authenticate(creds *Credentials) {
 	json.NewDecoder(resp.Body).Decode(&authresp)
 
 	// Store the session cookie
-	c.SessionCookie = authresp.SessionCookie
+	c.SessionCookie = "session_cookie=" + authresp.SessionCookie
 }
 
 // getClient sets up our http client
